@@ -20,7 +20,7 @@ import threading
 import json
 import sys
 
-API_SLEEP = 0.5
+API_SLEEP = 1.0
 
 _rate_lock = threading.Lock()
 _last_call_time = 0.0
@@ -333,7 +333,7 @@ def print_report(report: dict):
 
 def get_score(paper_title, author=None):
     report = credibility_report(paper_title, author)
-    return report.get('paper_score', 'ERROR Failed to load paper')
+    return report.get('overall_credibility_score', 'ERROR Failed to load paper')
 
 
 if __name__ == "__main__":
