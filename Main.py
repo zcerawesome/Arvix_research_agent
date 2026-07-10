@@ -131,6 +131,12 @@ if __name__ == '__main__':
 
     papers, success, total = find_and_score_papers(n=20)
 
+    if success == 0:
+        print('ERROR failed to scrape research papers')
+        exit(0)
+
+    user_prompt = input('Enter what you are aiming to research: ')
+
     filtered_papers = []
     for paper in papers:
         if paper['Score'] >= SCORE_LIMIT:
@@ -138,7 +144,7 @@ if __name__ == '__main__':
     for paper in filtered_papers:
         try:
             result = graph.invoke({
-                'research_goal': 'The research goal is to analyze stocks',
+                'research_goal': user_prompt,
                 'paper': papers[0],
                 'paper_stream': mp.get_pdf_bytes(papers[0]['arxiv_id']),
                 'agent': Gemini_agents
