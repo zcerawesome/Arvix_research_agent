@@ -1,0 +1,158 @@
+from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage, SystemMessage
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, Annotated
+import operator
+import manage_pdf as mp
+from fetch_papers import find_and_score_papers
+from AI_Agent import AI_Agent
+import io
+import yaml
+import json
+import os
+from dotenv import dotenv_values
+import pickle
+import re
+
+SCORE_LIMIT = 0
+
+class AgentState(TypedDict):
+    messages: Annotated[list, operator.add]  # messages accumulate
+    research_goal: str
+    paper: dict
+    paper_stream: io.BytesIO 
+    agent: AI_Agent
+
+relevance_schema = {
+    "type": "object",
+    "properties": {
+        "relevancy": {"type": "boolean"},
+        "reason": {"type": "string"},
+        "confidence": {"type": "integer"},
+    },
+    "required": ["relevancy", "reason", "confidence"],
+}
+
+def _parse_json_response(content: str) -> dict:
+    """Strip optional ```json fences before parsing an LLM JSON reply."""
+    content = content.strip()
+    if content.startswith("```"):
+        content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content).strip()
+    return json.loads(content)
+
+# ── Define a node (a step in the graph) ───────────────────────
+def filter_papers(state: AgentState) -> AgentState:
+    role = ROLES['Relevance Filter']
+    filter_text = role['system'].format(research_goal=state['research_goal'])
+    pdf_stream = state['paper_stream']
+    abstract_section = mp.extract_section(pdf_stream,
+                                          'abstract',
+                                          'introduction')
+    conclusion_section = mp.extract_section(pdf_stream,
+                                            'conclusion',
+                                            ['acknowledgements', 'references'])
+    filter_prompt = [
+        SystemMessage(content=filter_text),
+        HumanMessage(f'''Here is the data to evaluate\n\n
+                         Abstract: {abstract_section}\n\n
+                         Conclusion: {conclusion_section}\n\n
+                         ''')] 
+    response = filter_llm.invoke(filter_prompt)
+    return {"messages": [response]}
+
+
+def should_continue(state: AgentState) -> str:
+    last = state['messages'][-1]
+    parsed = _parse_json_response(last.content)
+    if parsed['relevancy'] == False:
+        return END
+    return "summarize_findings"
+
+def summarize_findings(state: AgentState) -> AgentState:
+    paper_str = mp.stream_to_text(state['paper_stream'])
+    role = ROLES['Summarize Results']
+    summarize_role = role['system']
+    summarize_prompt = [
+        SystemMessage(content=summarize_role),
+        HumanMessage(f'''Here is the data to evaluate\n\n
+                         {paper_str}''')
+    ]
+    response = state['agent'].invoke(summarize_prompt)
+    return {"messages": [response]}
+
+def save_paper(paper: dict, result: dict):
+    paper_title = paper['title'] + '-' + paper['arxiv_id']
+
+    with open(f'saved_papers/{paper_title}.yaml', 'w') as f:
+        try:
+            parsed = _parse_json_response(result["messages"][-1].content)
+        except Exception:
+            parsed = {"raw_response": result["messages"][-1].content}
+        parsed["url"] = paper["url"]
+        yaml.dump(parsed, f, sort_keys=False, allow_unicode=True, width=100)
+
+def load_api_keys():
+    config = dotenv_values()
+    os.environ["GOOGLE_API_KEY"] = config["GOOGLE_API_KEY"]
+    os.environ["OPEN_ALEX_API_KEY"] = config["OPEN_ALEX_API_KEY"]
+
+if __name__ == '__main__':
+    with open('roles.yaml', 'r') as f:
+        ROLES = yaml.safe_load(f)
+
+    load_api_keys()
+
+    filter_llm = ChatOllama(
+        model="llama3.2",
+        temperature=0.7,
+        format=relevance_schema,  # constrain Ollama to emit syntactically valid JSON
+    )
+    builder = StateGraph(AgentState)
+    builder.add_node("filter_llm", filter_papers)
+    builder.add_node("summarize_findings", summarize_findings)
+
+    builder.add_conditional_edges('filter_llm', should_continue)
+
+    builder.set_entry_point("filter_llm")
+
+    graph = builder.compile()
+
+    gemini_agents_list = [('gemini-2.5-flash', 250_000),
+                    ('gemini-2.5-flash-lite', 250_000),
+                    ('gemini-3-flash', 250_000),
+                    ('gemini-3.1-flash-lite', 250_000),
+                    ('gemini-3.5-flash', 250_000)
+                    ]
+    Gemini_agents = AI_Agent(gemini_agents_list)
+
+
+    papers, success, total = find_and_score_papers(n=50)
+
+    print('Number of successfully found papers ', success)
+
+    if success == 0:
+        print('ERROR failed to scrape research papers')
+        exit(0)
+
+    user_prompt = input('Enter what you are aiming to research: ')
+
+    filtered_papers = []
+    for paper in papers:
+        if paper['Score'] >= SCORE_LIMIT:
+            filtered_papers.append(paper)
+    for paper in filtered_papers:
+        try:
+            result = graph.invoke({
+                'research_goal': user_prompt,
+                'paper': paper,
+                'paper_stream': mp.get_pdf_bytes(paper['arxiv_id']),
+                'agent': Gemini_agents
+            })
+            parsed = _parse_json_response(result["messages"][-1].content)
+            if 'relevancy' in parsed:
+                print(f'Unsuccessfully Wrote about {paper["title"]}: Not relevant')
+                continue
+            save_paper(paper, result)
+            print('Successfully Wrote about ' + paper['title'])
+        except:
+            continue

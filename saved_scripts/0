@@ -1,0 +1,40 @@
+import os
+from dotenv import dotenv_values
+config = dotenv_values()
+os.environ["ALPACA_KEY_ID"] = config["ALPACA_KEY_ID"]
+os.environ["ALPACA_SECRET_KEY"] = config["ALPACA_SECRET_KEY"]
+import os
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+import vectorbt as vbt
+
+# Fetch historical data from Alpaca
+client = StockHistoricalDataClient(os.environ["ALPACA_KEY_ID"], os.environ["ALPACA_SECRET_KEY"])
+request = StockBarsRequest(symbol_or_symbols=["SHEL.LSE", "BP.LSE"], timeframe=TimeFrame.Day, start="2025-01-01", end="2025-12-31")
+bars = client.get_stock_bars(request).df
+
+# Compute entry/exit signals
+close = bars['close']
+log_spread = np.log(close['SHEL.LSE'] / close['BP.LSE'])
+z_score = vbt.returns.zscore(log_spread, window=8)
+alpha = z_score * 1  # signal_scale_c_alpha is 1
+
+# Create portfolio from signals
+portfolio = vbt.Portfolio.from_signals(
+    close,
+    entry_rule=alpha > 0,
+    exit_rule=alpha <= 0,
+    cash_sharing=True,
+    freq='D'
+)
+
+# Set position sizing and cost assumptions
+portfolio.set_position_size(size=np.inf, group_by=False)
+portfolio.set_cost_model(cost=vbt.Portfolio.cost_proportional_spread(0.5e-4))
+
+# Run backtest
+results = portfolio.run()
+
+# Print performance stats
+print(results.stats())

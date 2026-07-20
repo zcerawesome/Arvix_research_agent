@@ -22,7 +22,7 @@ import json
 import sys
 import os
 
-API_SLEEP = 1.0
+API_SLEEP = 0.5
 
 _rate_lock = threading.Lock()
 _last_call_time = 0.0

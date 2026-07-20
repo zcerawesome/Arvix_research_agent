@@ -1,0 +1,344 @@
+repo: polakowo/vectorbt
+generated_from:
+  - README.md
+  - GitHub releases page (dispatch.py / Rust kernel pattern description)
+  - vectorbt/__init__.py (import structure)
+note: >
+  File-to-bin mapping for hub/utility files is based on naming convention and
+  architecture knowledge, not a verified line-by-line read of every file.
+  Treat as a first-pass router; confirm with grep/read before editing.
+
+decision_tree:
+  - step: 1
+    rule: "Task mentions a domain word (Sharpe, signal, indicator, plot, data, portfolio, label, etc)?"
+    action: "Jump to that bin's accessors.py or base.py"
+  - step: 2
+    rule: "Shape/broadcast/index error with no domain keyword?"
+    action: "Go to bin: broadcasting_and_indexing"
+  - step: 3
+    rule: "Bug is about how results are structured, not what they compute?"
+    action: "Go to bin: records_framework"
+  - step: 4
+    rule: "Generic-sounding helper bug (caching, config, decorator)?"
+    action: "Go to bin: utilities (but rule out a domain bin's dispatch.py first)"
+  - step: 5
+    rule: "Default"
+    action: "Prefer accessors.py/base.py over nb.py/rust unless computation itself must change"
+
+bins:
+
+  - id: portfolio_simulation
+    title: "Run a backtest / simulate a portfolio"
+    triggers: [backtest, simulate, from_signals, from_orders, "buy/sell logic", position sizing, stop-loss, take-profit, "fees/slippage"]
+    files:
+      - path: vectorbt/portfolio/base.py
+        role: entry_point
+        desc: "Portfolio class: .from_signals(), .from_orders(), .from_holding(), .from_random_signals(). Start here for any 'run a strategy' task."
+      - path: vectorbt/portfolio/nb.py
+        role: kernel
+        desc: "Numba simulation loop - order execution logic, bar-by-bar state machine. Edit for custom fill/execution logic."
+      - path: vectorbt/portfolio/enums.py
+        role: constants
+        desc: "Order status, direction, size type enums - needed to interpret/construct order params."
+      - path: vectorbt/portfolio/orders.py
+        role: results
+        desc: "Orders records class - post-simulation order-level results."
+      - path: vectorbt/portfolio/trades.py
+        role: results
+        desc: "Trades/Positions records - trade-level analytics (win rate, PnL per trade, duration)."
+      - path: vectorbt/portfolio/logs.py
+        role: debug
+        desc: "Per-step simulation logs, for debugging simulation internals."
+      - path: vectorbt/portfolio/dispatch.py
+        role: engine_dispatch
+        desc: "Rust/Numba engine selection for simulation. Only touch if debugging engine fallback."
+      - path: vectorbt/portfolio/decorators.py
+        role: internal
+        desc: "Decorators wiring caching/config into Portfolio methods."
+      - path: rust/src/portfolio.rs
+        role: kernel_rust
+        desc: "Rust implementation mirroring portfolio/nb.py (order-based & signal-based sim, stop-loss/take-profit, reservoir sampling)."
+
+  - id: performance_metrics
+    title: "Compute performance metrics (Sharpe, drawdown, returns)"
+    triggers: ["Sharpe ratio", Sortino, Calmar, drawdown, "total return", "benchmark comparison", "risk metrics", QuantStats]
+    files:
+      - path: vectorbt/returns/metrics.py
+        role: entry_point
+        desc: "All named metric formulas (Sharpe, Sortino, Calmar, Omega, etc). Fix/extend a specific metric here."
+      - path: vectorbt/returns/accessors.py
+        role: public_api
+        desc: ".vbt.returns accessor - public API surface calling into metrics.py/nb.py."
+      - path: vectorbt/returns/nb.py
+        role: kernel
+        desc: "Numba kernels behind the metrics (rolling Sharpe, cumulative return, etc)."
+      - path: vectorbt/returns/qs_adapter.py
+        role: integration
+        desc: "Bridges vectorbt returns objects into the QuantStats library."
+      - path: vectorbt/returns/dispatch.py
+        role: engine_dispatch
+        desc: "Engine dispatch for return calculations."
+      - path: vectorbt/generic/drawdowns.py
+        role: results
+        desc: "Drawdowns records class - drawdown periods as structured records (start/end/depth), distinct from the scalar 'max drawdown' metric."
+      - path: rust/src/returns.rs
+        role: kernel_rust
+        desc: "Rust kernels for return metrics."
+
+  - id: signals
+    title: "Generate or analyze trading signals"
+    triggers: ["entry/exit signals", crossover, "signal generator", "random signals", "signal ranking", "stop signals", "custom signal factory"]
+    files:
+      - path: vectorbt/signals/generators.py
+        role: entry_point
+        desc: "Built-in signal generators: random entries, stop-loss/take-profit-based stops, OHLC-derived stops."
+      - path: vectorbt/signals/factory.py
+        role: factory
+        desc: "SignalFactory - build a custom signal generator class (analogous to IndicatorFactory)."
+      - path: vectorbt/signals/accessors.py
+        role: public_api
+        desc: ".vbt.signals accessor: crossover detection, ranking, distribution stats on boolean signal arrays."
+      - path: vectorbt/signals/nb.py
+        role: kernel
+        desc: "Numba kernels behind signal generation/analysis."
+      - path: vectorbt/signals/enums.py
+        role: constants
+        desc: "Signal-related enums (e.g. stop type)."
+      - path: vectorbt/signals/dispatch.py
+        role: engine_dispatch
+        desc: "Engine dispatch."
+      - path: rust/src/signals.rs
+        role: kernel_rust
+        desc: "Rust kernels (random, stop, OHLC-stop generation)."
+
+  - id: indicators
+    title: "Technical indicators (custom or built-in)"
+    triggers: [RSI, "moving average", "Bollinger Bands", MACD, ATR, "custom indicator", "TA-Lib integration", pandas-ta]
+    files:
+      - path: vectorbt/indicators/basic.py
+        role: entry_point
+        desc: "Built-in indicators: MA, RSI, BBANDS, ATR, MACD, STOCH, OBV. Read first for 'how does indicator X work'."
+      - path: vectorbt/indicators/factory.py
+        role: factory
+        desc: "IndicatorFactory - the class used to build a brand-new custom indicator from a raw Numba/Python function. Go here for 'write a custom indicator' tasks."
+      - path: vectorbt/indicators/configs.py
+        role: integration
+        desc: "TA-Lib / pandas-ta wrapper configuration (auto-generates vectorbt-style indicator classes from those libraries)."
+      - path: vectorbt/indicators/nb.py
+        role: kernel
+        desc: "Numba kernels for the built-in indicators."
+      - path: vectorbt/indicators/dispatch.py
+        role: engine_dispatch
+        desc: "Engine dispatch."
+
+  - id: plotting
+    title: "Plotting / visualization / dashboards"
+    triggers: [plot, chart, heatmap, subplot, dashboard, animate, theme, "figure styling"]
+    files:
+      - path: vectorbt/generic/plotting.py
+        role: entry_point
+        desc: "Low-level Plotly trace builders: heatmaps, scatter, volume, etc."
+      - path: vectorbt/generic/plots_builder.py
+        role: framework
+        desc: "Framework for composing multi-panel .plots() dashboards (used by Portfolio.plot() etc)."
+      - path: vectorbt/generic/stats_builder.py
+        role: framework
+        desc: "Framework behind .stats() summary tables (not visual, but same builder pattern - check here for 'why does .stats() show/hide X')."
+      - path: vectorbt/utils/figure.py
+        role: helper
+        desc: "make_subplots, save_animation helpers."
+      - path: vectorbt/utils/colors.py
+        role: helper
+        desc: "Color palette utilities."
+      - path: vectorbt/utils/image_.py
+        role: helper
+        desc: "Static image export."
+      - path: vectorbt/templates/
+        role: config
+        desc: "Plotly theme JSON definitions (dark/light/seaborn). Edit for visual styling only, no logic."
+      - path: vectorbt/px_accessors.py
+        role: public_api
+        desc: "Plotly-express-style .vbt.px accessor."
+      - path: vectorbt/ohlcv_accessors.py
+        role: public_api
+        desc: "OHLCV-specific plotting accessor (candlestick charts)."
+
+  - id: data_acquisition
+    title: "Data acquisition & updates"
+    triggers: ["download data", YFData, CCXT, "synthetic data", "scheduled update", "fetch OHLCV"]
+    files:
+      - path: vectorbt/data/custom.py
+        role: entry_point
+        desc: "Concrete data source classes (YFData, CCXTData, synthetic generators). Start here for 'add a new data source'."
+      - path: vectorbt/data/base.py
+        role: base_class
+        desc: "Abstract Data base class - fetch/merge/update interface all sources implement."
+      - path: vectorbt/data/updater.py
+        role: automation
+        desc: "Scheduled/incremental data updating logic."
+      - path: vectorbt/utils/requests_.py
+        role: helper
+        desc: "Low-level HTTP helpers used by data fetchers."
+      - path: vectorbt/utils/schedule_.py
+        role: helper
+        desc: "Scheduling primitives (used by updater.py and messaging/)."
+
+  - id: ml_labels
+    title: "ML label generation (for supervised learning on price data)"
+    triggers: ["label generation", "trend labeling", "walk-forward", "target variable for ML", "future return labels"]
+    files:
+      - path: vectorbt/labels/generators.py
+        role: entry_point
+        desc: "Label generator classes (e.g. forward-mean, forward-std, trend classification)."
+      - path: vectorbt/labels/nb.py
+        role: kernel
+        desc: "Numba kernels for label computation."
+      - path: vectorbt/labels/enums.py
+        role: constants
+        desc: "Trend/label type enums."
+      - path: vectorbt/labels/dispatch.py
+        role: engine_dispatch
+        desc: "Engine dispatch."
+      - path: vectorbt/generic/splitters.py
+        role: helper
+        desc: "Walk-forward / cross-validation splitting - pairs with labels for ML pipelines."
+      - path: rust/src/labels.rs
+        role: kernel_rust
+        desc: "Rust kernels."
+
+  - id: records_framework
+    title: "Records & mapped-array framework (internals/advanced)"
+    triggers: ["custom records class", "mapped array", "column grouping of results", ".records looks wrong", ".records_readable looks wrong"]
+    caveat: "Only go here if a domain-bin task requires changing HOW results are structured, not just what the numbers are."
+    files:
+      - path: vectorbt/records/base.py
+        role: base_class
+        desc: "Records base class - the generic 'structured array + column mapping' abstraction underlying Orders, Trades, Drawdowns, Ranges, Logs."
+      - path: vectorbt/records/mapped_array.py
+        role: core
+        desc: "MappedArray - 1D array + index/column mapping, core building block for records analytics (groupby, reduce, to_pd)."
+      - path: vectorbt/records/col_mapper.py
+        role: helper
+        desc: "Column-to-record mapping logic for grouped/multi-asset results."
+      - path: vectorbt/records/nb.py
+        role: kernel
+        desc: "Numba kernels for record aggregation/reduction."
+      - path: vectorbt/records/dispatch.py
+        role: engine_dispatch
+        desc: "Engine dispatch."
+      - path: rust/src/records.rs
+        role: kernel_rust
+        desc: "Rust kernels."
+
+  - id: broadcasting_and_indexing
+    title: "Broadcasting, array wrapping, indexing (foundational internals)"
+    triggers: ["shape mismatch", "broadcasting error", "multi-index columns", ArrayWrapper, "weird pandas index/column behavior"]
+    caveat: "Rarely the fix for a feature bug - usually only relevant for shape/broadcast errors or building something new on top of vectorbt's array model."
+    files:
+      - path: vectorbt/base/array_wrapper.py
+        role: core
+        desc: "ArrayWrapper - wraps raw NumPy arrays with pandas index/column metadata. Nearly everything in vectorbt is built on top of this."
+      - path: vectorbt/base/reshape_fns.py
+        role: core
+        desc: "broadcast(), to_2d() and friends - the core reason vectorbt can run thousands of parameter combos at once."
+      - path: vectorbt/base/indexing.py
+        role: helper
+        desc: "Custom .loc/.iloc-style indexing across wrapped objects."
+      - path: vectorbt/base/column_grouper.py
+        role: helper
+        desc: "Multi-asset / multi-parameter column grouping logic."
+      - path: vectorbt/base/index_fns.py
+        role: helper
+        desc: "DatetimeIndex manipulation helpers."
+      - path: vectorbt/base/combine_fns.py
+        role: helper
+        desc: "Combining/aligning multiple wrapped arrays."
+      - path: vectorbt/base/accessors.py
+        role: public_api
+        desc: "Base .vbt accessor all other accessors extend."
+      - path: vectorbt/root_accessors.py
+        role: public_api
+        desc: "Registers the top-level .vbt pandas accessor."
+
+  - id: notifications
+    title: "Notifications / automation"
+    triggers: ["Telegram bot", alert, notification, "scheduled job"]
+    files:
+      - path: vectorbt/messaging/telegram.py
+        role: entry_point
+        desc: "Telegram bot integration for sending alerts/messages."
+
+  - id: utilities
+    title: "Cross-cutting utilities (grab-bag, but each file is narrow)"
+    triggers: ["helper function", "config object", "caching decorator", "why is this cached/not cached"]
+    files:
+      - path: vectorbt/utils/config.py
+        role: core
+        desc: "Config - dict-like config object used pervasively (settings, indicator params, etc)."
+      - path: vectorbt/utils/decorators.py
+        role: core
+        desc: "General caching/property decorators used across the whole library."
+      - path: vectorbt/utils/checks.py
+        role: helper
+        desc: "Input validation/assertion helpers."
+      - path: vectorbt/utils/params.py
+        role: helper
+        desc: "Parameter-combination/grid-expansion utilities (powers MA.run_combs()-style sweeps)."
+      - path: vectorbt/utils/template.py
+        role: helper
+        desc: "Rep/RepEval deferred-evaluation templating (used for lazy default params)."
+      - path: vectorbt/utils/datetime_.py
+        role: helper
+        desc: "Datetime parsing / frequency inference."
+      - path: vectorbt/utils/math_.py
+        role: helper
+        desc: "Float comparison helpers (is_close, etc)."
+      - path: vectorbt/utils/array_.py
+        role: helper
+        desc: "Generic NumPy array helpers."
+      - path: vectorbt/utils/enum_.py
+        role: helper
+        desc: "Enum helpers."
+      - path: vectorbt/utils/mapping.py
+        role: helper
+        desc: "Value-label mapping helpers."
+      - path: vectorbt/utils/module_.py
+        role: helper
+        desc: "Module introspection, import_submodules (used in top-level __init__.py)."
+      - path: vectorbt/utils/attr_.py
+        role: internal
+        desc: "Attribute/introspection plumbing - mostly internal, rarely the fix."
+      - path: vectorbt/utils/docs.py
+        role: internal
+        desc: "Docstring generation plumbing - mostly internal, rarely the fix."
+      - path: vectorbt/utils/tags.py
+        role: internal
+        desc: "Tagging system plumbing - mostly internal, rarely the fix."
+      - path: vectorbt/_settings.py
+        role: global_config
+        desc: "Global settings object - defaults for broadcasting, plotting, indicators, etc. Check here if behavior seems 'configured' rather than hardcoded."
+      - path: vectorbt/_engine.py
+        role: global_config
+        desc: "Global Rust-vs-Numba engine selection logic (the thing every dispatch.py calls into)."
+      - path: vectorbt/_typing.py
+        role: internal
+        desc: "Shared type aliases for type hints."
+
+  - id: not_library_code
+    title: "Not library code - skip unless task explicitly targets these"
+    files:
+      - path: tests/
+        role: tests
+        desc: "Test suite, mirrors package structure 1:1 (e.g. test_portfolio.py tests portfolio/). Use to find expected-behavior examples, not to fix bugs."
+      - path: benchmarks/
+        role: perf
+        desc: "Performance benchmarking scripts, not user-facing behavior."
+      - path: apps/candlestick-patterns/
+        role: example_app
+        desc: "Standalone Dash example app - self-contained, unrelated to core library internals."
+      - path: rust/
+        role: rust_engine
+        desc: "Rust engine source - mirror image of */nb.py files, only relevant if the task is specifically about Rust-path performance/correctness."
+      - path: docs/
+        role: docs
+        desc: "Documentation source, not code."
