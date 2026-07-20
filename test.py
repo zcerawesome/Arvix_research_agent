@@ -3,65 +3,50 @@ from dotenv import dotenv_values
 config = dotenv_values()
 os.environ["ALPACA_KEY_ID"] = config["ALPACA_KEY_ID"]
 os.environ["ALPACA_SECRET_KEY"] = config["ALPACA_SECRET_KEY"]
+
 import os
 from datetime import datetime
 import vectorbt as vbt
+import numpy as np
 
-# Fetch historical data for SHEL and BP PLC on LSE
-shel_data = vbt.AlpacaData.download(
+# Fetch historical OHLCV data for SHEL and BP PLC equities on the London Stock Exchange (LSE)
+shel_data = vbt.YFData.download(
     'SHEL.LON',
     start=datetime(2025, 1, 1),
     end=datetime(2025, 12, 31),
-    timeframe='1D',  # Corrected the timeframe to a valid value
-    api_key=os.environ["ALPACA_KEY_ID"],
-    secret_key=os.environ["ALPACA_SECRET_KEY"],
-    feed='iex',
-    limit=None,
+    interval='1d'
 )
 
-bp_data = vbt.AlpacaData.download(
+bp_data = vbt.YFData.download(
     'BP.LON',
     start=datetime(2025, 1, 1),
     end=datetime(2025, 12, 31),
-    timeframe='1D',  # Corrected the timeframe to a valid value
-    api_key=os.environ["ALPACA_KEY_ID"],
-    secret_key=os.environ["ALPACA_SECRET_KEY"],
-    feed='iex',
-    limit=None,
+    interval='1d'
 )
 
-# Concatenate the data
-data = shel_data.merge(bp_data, keys=['SHEL', 'BP'])
+# Compute the entry/exit signals
+def compute_signals(data):
+    if data.empty:
+        return np.nan * np.zeros_like(data['Close'])
+    log_spread = np.log(data['Close'] / data['Close'].shift(1))
+    z_score = vbt.RollingZScore.run(log_spread, window=8).zscore
+    alpha = z_score * 1  # signal_scale_c_alpha is 1
+    vt = B @ alpha  # Trading speed vt = Bxt
+    return vt
 
-# Compute log spreads and z-scores
-log_spreads = np.log(data.close['SHEL']) - np.log(data.close['BP'])
-z_scores = vbt.RollingZScore.run(log_spreads, window=8).zscore
+shel_signals = compute_signals(shel_data)
+bp_signals = compute_signals(bp_data)
 
-# Define the predictive signal αt = Kxt
-alpha_t = z_scores * 1  # Signal scale c_alpha is 1
-
-# Define the trading speed vt = Bxt
-vt = alpha_t * np.array([10**-1, 10**-2])  # Temporary impact matrix Lambda_tilde
-
-# Define the position sizing (shares per unit time)
-position_sizing = vt
-
-# Define the cost assumptions
-proportional_spread_cost = 0.5e-4  # 0.5 basis points per unit of traded notional
-
-# Run the backtest using vectorbt's Portfolio.from_signals method
+# Run the backtest with vectorbt using the stated position sizing/cost assumptions
 portfolio = vbt.Portfolio.from_signals(
-    close=data.close,
-    signals=alpha_t > 0,  # Entry rule: trade when αt is positive
-    short_signals=alpha_t < 0,  # Exit rule: no explicit discrete exit rule
-    position_sizing=position_sizing,
-    cost_model=vbt.PortfolioCostModel(
-        slippage_model='linear',
-        slippage_coef=proportional_spread_cost,
-        commission_model='flat',
-        commission_coef=0.001  # Assuming a flat commission of 0.1%
-    ),
-    cash_sharing=True
+    close=np.vstack((shel_data['Close'], bp_data['Close'])),
+    signals=np.vstack((shel_signals, bp_signals)),
+    freq='1d',
+    initial_cash=100000,
+    cost_model=vbt.PortfolioCostModel.slippage_and_commission(
+        slippage=vbt.OptimizedSlippage.from_twap(shel_data['High'], shel_data['Low']),
+        commission=vbt.Commission.flat(0.5e-4)
+    )
 )
 
 # Print the resulting performance stats

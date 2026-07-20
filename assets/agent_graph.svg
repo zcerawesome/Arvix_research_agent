@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1150" viewBox="0 0 900 1150" font-family="Arial, sans-serif">
+  <defs>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#FF6B35"/>
+    </marker>
+    <marker id="arrowCyan" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#00C2FF"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#9D4EDD"/>
+    </marker>
+    <marker id="arrowYellow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#FFC300"/>
+    </marker>
+    <marker id="arrowPink" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#FF3D9A"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#06FFA5"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="1150" fill="#0F1117"/>
+
+  <!-- Title -->
+  <text x="450" y="45" fill="#FFFFFF" font-size="24" font-weight="bold" text-anchor="middle">Research Paper Test-Code Agent Graph</text>
+
+  <!-- Node 1: Router -->
+  <rect x="330" y="80" width="240" height="70" rx="14" fill="#FF6B35"/>
+  <text x="450" y="108" fill="#0F1117" font-size="15" font-weight="bold" text-anchor="middle">Router Node</text>
+  <text x="450" y="128" fill="#0F1117" font-size="11.5" text-anchor="middle">Reads decision tree, selects</text>
+  <text x="450" y="142" fill="#0F1117" font-size="11.5" text-anchor="middle">GitHub tool path</text>
+
+  <!-- Arrow 1 -->
+  <line x1="450" y1="150" x2="450" y2="195" stroke="#FF6B35" stroke-width="3" marker-end="url(#arrowOrange)"/>
+
+  <!-- Node 2: Fetch Paths -->
+  <rect x="320" y="195" width="260" height="70" rx="14" fill="#00C2FF"/>
+  <text x="450" y="223" fill="#0F1117" font-size="15" font-weight="bold" text-anchor="middle">Fetch Paths Node</text>
+  <text x="450" y="243" fill="#0F1117" font-size="11.5" text-anchor="middle">Fetches selected GitHub paths</text>
+  <text x="450" y="257" fill="#0F1117" font-size="11.5" text-anchor="middle">into a variable</text>
+
+  <!-- Arrow 2 -->
+  <line x1="450" y1="265" x2="450" y2="310" stroke="#00C2FF" stroke-width="3" marker-end="url(#arrowCyan)"/>
+
+  <!-- Node 3: Code Gen -->
+  <rect x="300" y="310" width="300" height="80" rx="14" fill="#9D4EDD"/>
+  <text x="450" y="338" fill="#FFFFFF" font-size="15" font-weight="bold" text-anchor="middle">Code Generation Node</text>
+  <text x="450" y="358" fill="#FFFFFF" font-size="11.5" text-anchor="middle">Generates test code using paper</text>
+  <text x="450" y="374" fill="#FFFFFF" font-size="11.5" text-anchor="middle">criteria + fetched paths</text>
+
+  <!-- Arrow 3 -->
+  <line x1="450" y1="390" x2="450" y2="435" stroke="#9D4EDD" stroke-width="3" marker-end="url(#arrowPurple)"/>
+
+  <!-- Node 4: Syntax Fix -->
+  <rect x="320" y="435" width="260" height="70" rx="14" fill="#FFC300"/>
+  <text x="450" y="463" fill="#0F1117" font-size="15" font-weight="bold" text-anchor="middle">Syntax Fix Node</text>
+  <text x="450" y="483" fill="#0F1117" font-size="11.5" text-anchor="middle">Detects and fixes syntax</text>
+  <text x="450" y="497" fill="#0F1117" font-size="11.5" text-anchor="middle">errors in generated code</text>
+
+  <!-- Arrow 4 -->
+  <line x1="450" y1="505" x2="450" y2="550" stroke="#FFC300" stroke-width="3" marker-end="url(#arrowYellow)"/>
+
+  <!-- Node 5: Run/Test Decision -->
+  <polygon points="450,550 590,610 450,670 310,610" fill="#FF3D9A"/>
+  <text x="450" y="602" fill="#0F1117" font-size="14" font-weight="bold" text-anchor="middle">Run Code</text>
+  <text x="450" y="620" fill="#0F1117" font-size="12" text-anchor="middle">Bug found?</text>
+
+  <!-- Arrow: No bug -> End -->
+  <line x1="590" y1="610" x2="720" y2="610" stroke="#FF3D9A" stroke-width="3" marker-end="url(#arrowPink)"/>
+  <text x="655" y="598" fill="#FF3D9A" font-size="12" font-weight="bold" text-anchor="middle">No bug</text>
+
+  <!-- End Node -->
+  <ellipse cx="800" cy="610" rx="75" ry="45" fill="#06FFA5"/>
+  <text x="800" y="605" fill="#0F1117" font-size="14" font-weight="bold" text-anchor="middle">End</text>
+  <text x="800" y="623" fill="#0F1117" font-size="11" text-anchor="middle">Code works</text>
+
+  <!-- Arrow: Bug found -> Bug Fix Node -->
+  <line x1="310" y1="610" x2="180" y2="610" stroke="#06FFA5" stroke-width="3" marker-end="url(#arrowGreen)"/>
+  <text x="245" y="598" fill="#06FFA5" font-size="12" font-weight="bold" text-anchor="middle">Bug found</text>
+
+  <!-- Node 6: Bug Fix -->
+  <rect x="30" y="575" width="150" height="70" rx="14" fill="#06FFA5"/>
+  <text x="105" y="603" fill="#0F1117" font-size="14" font-weight="bold" text-anchor="middle">Bug Fix Node</text>
+  <text x="105" y="623" fill="#0F1117" font-size="11" text-anchor="middle">Fixes the runtime</text>
+  <text x="105" y="637" fill="#0F1117" font-size="11" text-anchor="middle">bug</text>
+
+  <!-- Arrow: Bug Fix -> back to Syntax Fix (loop) -->
+  <path d="M105,575 C105,450 320,470 320,470" fill="none" stroke="#00C2FF" stroke-width="3" marker-end="url(#arrowCyan)"/>
+  <text x="140" y="480" fill="#00C2FF" font-size="12" font-weight="bold" text-anchor="middle">Send back</text>
+
+  <!-- Loop label near syntax/run -->
+  <text x="450" y="700" fill="#AAAAAA" font-size="12" text-anchor="middle" font-style="italic">Loop repeats: Syntax Fix → Run → Bug Fix → Syntax Fix, until code runs successfully</text>
+
+  <!-- Legend -->
+  <rect x="60" y="760" width="780" height="330" rx="16" fill="#171922" stroke="#333" stroke-width="1"/>
+  <text x="450" y="795" fill="#FFFFFF" font-size="16" font-weight="bold" text-anchor="middle">Flow Summary</text>
+
+  <text x="90" y="830" fill="#FF6B35" font-size="13" font-weight="bold">1. Router Node</text>
+  <text x="90" y="850" fill="#CCCCCC" font-size="12">Reads a decision tree and decides which GitHub tool path to fetch, based on the research paper being tested.</text>
+
+  <text x="90" y="878" fill="#00C2FF" font-size="13" font-weight="bold">2. Fetch Paths Node</text>
+  <text x="90" y="898" fill="#CCCCCC" font-size="12">Fetches the chosen paths from GitHub and stores them in a variable.</text>
+
+  <text x="90" y="926" fill="#9D4EDD" font-size="13" font-weight="bold">3. Code Generation Node</text>
+  <text x="90" y="946" fill="#CCCCCC" font-size="12">Generates code that uses the paper's criteria plus the fetched paths to test the paper's claims.</text>
+
+  <text x="90" y="974" fill="#FFC300" font-size="13" font-weight="bold">4. Syntax Fix Node</text>
+  <text x="90" y="994" fill="#CCCCCC" font-size="12">Fixes syntax errors in the generated code before it's run.</text>
+
+  <text x="90" y="1022" fill="#FF3D9A" font-size="13" font-weight="bold">5. Run / Bug Check</text>
+  <text x="90" y="1042" fill="#CCCCCC" font-size="12">Runs the code. If a bug occurs, routes to the Bug Fix Node; otherwise the graph ends successfully.</text>
+
+  <text x="90" y="1070" fill="#06FFA5" font-size="13" font-weight="bold">6. Bug Fix Node → loop</text>
+  <text x="90" y="1090" fill="#CCCCCC" font-size="12">Fixes the bug and sends the code back to the Syntax Fix Node; this repeats until the code runs cleanly.</text>
+</svg>

@@ -124,16 +124,29 @@ Code Generator:
     pattern (adapt the timeframe/date range/symbols to the strategy, do not import any Alpaca libraries,
     or invent any other modules):
     ```
+
+    For data on US securities use the below code to get data
+
     ... = vbt.AlpacaData.download(
       STOCK_NAME,
       start=..., 
       end=...,
-      timeframe=...,
+      timeframe=...1d,1m,etc.,
       api_key=os.environ["ALPACA_KEY_ID"],      # Notice 'api_key', not 'key_id'
       secret_key=os.environ["ALPACA_SECRET_KEY"],
       feed='iex',   # free-tier keys aren't subscribed to SIP; IEX is available on the free plan
       limit=None,   # default limit=500 caps TOTAL bars across all pages, not per-page
     )
+
+    For data on non-US securities, use the below code to get data
+
+    ... = vbt.YFData.download(
+      STOCK_NAME,
+      start=...,
+      end=...,
+      interval=1d, 1m, etc.
+    )
+
     ```
 
     Use the vectorbt library to backtest the strategy. Below are the actual classes/methods

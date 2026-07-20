@@ -16,7 +16,28 @@ pymupdf
 requests
 pyyaml
 ollama
+numpy
+vectorbt
+gitingest
+
+Additionally, a Gemini, OpenAlex, and Alpaca API key is necessary
+
+To Fetch papers and process them run:
+
+> [!NOTE]
+> Run this command to fetch the papers:
+> ```bash
+> python3 read_papers.py
+> ```
+
+> [!NOTE]
+> Run this command to generate code to backtest papers:
+> ```bash
+> python3 test_strategy.py
+> ```
 
 The diagram of the agent workflow is noted below
 
 ![Pipeline Flowchart](assets/pipeline_flowchart.svg)
+
+![Pipeline Flowchart](assets/agent_graph.svg)
